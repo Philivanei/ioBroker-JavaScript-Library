@@ -4,28 +4,33 @@ const changeThreshs = [1400, 2400, 3300, 4300, 5700, 7000]; // -> watt
 
 let lastPhaseCode = 0;
 let lastAmpRate = 0;
+// isCharging gets synced correctly after first state change
 let isCharging = false;
 
 function startCharging() {
-    setState('go-e.0.allow_charging', 1, function (err) {
-        if (err) {
-            console.error(err);
-        } else {
-            console.log('Charging started successfully.');
-        }
-    });
-    isCharging = true;
+    if (!isCharging) {
+        setState('go-e.0.allow_charging', 1, function (err) {
+            if (err) {
+                console.error(err);
+            } else {
+                console.log('Charging started successfully.');
+                isCharging = true;
+            }
+        });
+    }
 }
 
 function stopCharging() {
-    setState('go-e.0.allow_charging', 0, function (err) {
-        if (err) {
-            console.error(err);
-        } else {
-            console.log('Charging stopped successfully.');
-        }
-    });
-    isCharging = false;
+    if (isCharging) {
+        setState('go-e.0.allow_charging', 0, function (err) {
+            if (err) {
+                console.error(err);
+            } else {
+                console.log('Charging stopped successfully.');
+                isCharging = false;
+            }
+        });
+    }
 }
 
 function changePhase(phaseCode) {
@@ -136,9 +141,7 @@ function chargingActivity(surplus) {
     console.log(`Charging granted. Surplus value: ${surplus}W`);
     let chargingLevel = calculateChargingLevel(surplus);
     setChargingPower(chargingLevel);
-    if (!isCharging) {
-        startCharging();
-    }
+    startCharging();
 }
 
 setInterval(function() {
@@ -153,13 +156,12 @@ setInterval(function() {
 
     if (getState("go-e.0.car").val == 1) {
         console.log(`No car connected to charger (ChargerStatus: ${getState("go-e.0.car").val}).`);
+        stopCharging();
     } else {
         if (netUsage > 0) {
             console.log(`Using public electricity power ${netUsage}W. Evaluate charging again ...`);
             if (calculateChargingLevel(surplusCar) == 99) {
-                if (isCharging) {
-                    stopCharging();
-                }
+                stopCharging();
             } else {
                 chargingActivity(surplusCar);
             }
